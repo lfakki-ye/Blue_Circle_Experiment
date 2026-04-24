@@ -14,7 +14,12 @@
 
   <style>
     /* ── Global ── */
-    body {
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
       background: #f0eae8;
       font-family: Georgia, 'Times New Roman', serif;
       color: #2a1f1f;
@@ -22,7 +27,9 @@
 
     /* ── Instruction / text screens ── */
     .jspsych-content {
-      max-width: 720px;
+      max-width: 90vw;
+      max-height: 90vh;
+      overflow-y: auto;
     }
     .jspsych-content p {
       font-size: 1.1rem;
@@ -30,23 +37,38 @@
       margin-bottom: 1em;
     }
 
+    /* ── Search Trial Wrapper ── */
+    .jspsych-image-hotspots {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      width: 100vw;
+      height: 100vh;
+      padding: 0;
+      margin: 0;
+      overflow: hidden;
+      gap: 10px;
+    }
+
     /* ── Search Trial UI (Prompt Area) ── */
     #search-ui-container {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 16px;
-      padding: 20px;
-      margin-top: 10px;
+      gap: 5px;
+      padding: 8px;
+      margin-top: 0;
+      flex-shrink: 0;
     }
 
     #move-on-btn {
-      padding: 10px 30px;
+      padding: 8px 25px;
       background: #7a5050;
       color: #fff;
       border: none;
       border-radius: 24px;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       font-family: Georgia, serif;
       letter-spacing: 0.05em;
       cursor: pointer;
@@ -60,11 +82,11 @@
 
     /* ── Progress bar ── */
     #progress-wrapper {
-      width: 500px;
-      max-width: 90vw;
+      width: 300px;
+      max-width: 70vw;
       background: #d9cece;
       border-radius: 20px;
-      height: 8px;
+      height: 6px;
       overflow: hidden;
     }
     #progress-bar {
@@ -75,62 +97,99 @@
     }
 
     #progress-label {
-      font-size: 0.8rem;
+      font-size: 0.7rem;
       color: #7a5050;
-      margin-top: 4px;
+      margin-top: 2px;
     }
   </style>
 </head>
 <body>
 <script>
 
+//function experiment_expectations(data) {
+
+
+// Global variable to store image metadata
+let imageMetadata = [];
+let imagePools = { high: [], low: [] };
+
+function fetchJSONData() {
+    return fetch('./mergedjsonfiles.json')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();  
+        })
+        .then(data => {
+            imageMetadata = data;
+            console.log(`Loaded ${imageMetadata.length} image metadata entries`);
+            // Build image pools once data is loaded
+            imagePools = buildImagePools(data);
+            console.log(`Built image pools: ${imagePools.high.length} high sim, ${imagePools.low.length} low sim`);
+            return data;
+        })
+        .catch(error => {
+            console.error('Failed to fetch data:', error);
+            alert('Error loading experiment data. Please make sure you are running this from a web server, not opening the file directly in your browser.');
+            return [];
+        }); 
+}
+
+// Build image pools from JSON metadata
+function buildImagePools(metadata) {
+  const highSimImages = [];
+  const lowSimImages = [];
+  
+  metadata.forEach(entry => {
+    const imageObj = {
+      stimulus: `./newest_stimuli_200_trials_resized/${entry.image_file}`,
+      targetPresent: entry.target_present,
+      target_bbox: entry.target_bbox,
+      similarity: entry.similarity_pct,
+      hotspots: buildHotspotsFromBBox(entry.target_bbox, entry.target_present)
+    };
+    
+    if (entry.similarity_pct === 40) {
+      highSimImages.push(imageObj);
+    } else if (entry.similarity_pct === 90) {
+      lowSimImages.push(imageObj);
+    }
+  });
+  
+  return { high: highSimImages, low: lowSimImages };
+}
+
+// Fetch the data before initializing the experiment
+let dataLoadPromise = fetchJSONData();
+
+// Convert target_bbox to hotspots format for the image-hotspots plugin
+function buildHotspotsFromBBox(bbox, targetPresent) {
+  if (!targetPresent || !bbox) {
+    return [];
+  }
+  
+  // bbox format: {x_min, x_max, y_min, y_max}
+  const hotspots = [];
+  if (bbox && bbox.x_min !== undefined) {
+    hotspots.push({
+      id: 'target',
+      x: Math.round(bbox.x_min),
+      y: Math.round(bbox.y_min),
+      width: Math.round(bbox.x_max - bbox.x_min),
+      height: Math.round(bbox.y_max - bbox.y_min)
+    });
+  }
+  return hotspots;
+}
+
 // ════════════════════════════════════════════════════════════
-// CONFIGURATION — Refactored for Image Hotspots
+// CONFIGURATION
 // ════════════════════════════════════════════════════════════
 const CONFIG = {
   TRIALS_PER_BLOCK: 40,
   HIGH_PREVALENCE_RATE: 0.70,
   LOW_PREVALENCE_RATE:  0.10,
-
-  // Because the image-hotspots plugin expects a single background image,
-  // define your search images here. Specify if the target is present 
-  // and map out the (x, y, width, height) of the clickable regions.
-  
-  HIGH_SIM_IMAGES: [
-    {
-      stimulus: "images/scene_high_1_present.jpg", // Replace with your real composite image
-      targetPresent: true,
-      hotspots: [
-        { id: 'target', x: 150, y: 200, width: 80, height: 80 },
-        // (Optional) Define distractors. If they click this, it records the click but counts as an error.
-        { id: 'distractor_1', x: 300, y: 200, width: 80, height: 80 } 
-      ]
-    },
-    {
-      stimulus: "images/scene_high_2_absent.jpg",
-      targetPresent: false,
-      hotspots: [
-        { id: 'distractor_1', x: 100, y: 100, width: 80, height: 80 }
-      ]
-    }
-    // Add as many unique images and layouts as you need...
-  ],
-
-  LOW_SIM_IMAGES: [
-    {
-      stimulus: "images/scene_low_1_present.jpg",
-      targetPresent: true,
-      hotspots: [
-        { id: 'target', x: 400, y: 50, width: 80, height: 80 }
-      ]
-    },
-    {
-      stimulus: "images/scene_low_2_absent.jpg",
-      targetPresent: false,
-      hotspots: [] // No target, and if no distractors are mapped, they must click 'Move On'
-    }
-    // Add as many unique images and layouts as you need...
-  ]
 };
 
 // ════════════════════════════════════════════════════════════
@@ -225,17 +284,23 @@ timeline.push(welcome, instructions_1, instructions_2);
 // ════════════════════════════════════════════════════════════
 
 function makeSearchTrial({ targetPresent, similarity, trialIndex, totalTrials, isPractice = false }) {
-
-  // Select the appropriate pool based on similarity
-  const pool = similarity === "high" ? CONFIG.HIGH_SIM_IMAGES : CONFIG.LOW_SIM_IMAGES;
+  // Use the pre-built image pools
+  const pool = similarity === "high" ? imagePools.high : imagePools.low;
   
-  // Filter out images based on whether the target should be present in this specific trial
+  // Filter images based on whether target should be present in this trial
   const validImages = pool.filter(img => img.targetPresent === targetPresent);
   
-  // Select a random image from the filtered list (with a fallback to prevent crashes if the config isn't populated yet)
+  // Select a random image from the filtered list
   const trialImage = validImages.length > 0 
     ? validImages[Math.floor(Math.random() * validImages.length)] 
-    : { stimulus: "images/placeholder.jpg", hotspots: [] };
+    : { 
+        stimulus: "./newest_stimuli_200_trials_resized/highprev_target_absent_sim40_001.png", 
+        hotspots: [],
+        targetPresent: false 
+      };
+
+  // Debug logging to verify different images are being selected
+  console.log(`Trial ${trialIndex}: similarity=${similarity}, targetPresent=${targetPresent}, selected image: ${trialImage.stimulus}, valid images available: ${validImages.length}`);
 
   const progressPct = Math.round((trialIndex / totalTrials) * 100);
 
@@ -292,6 +357,7 @@ function makeSearchTrial({ targetPresent, similarity, trialIndex, totalTrials, i
       data.movedOn = movedOn;
       data.isPractice = isPractice;
       data.trialIndex = trialIndex;
+      data.stimulus_file = trialImage.stimulus;
     }
   };
 }
@@ -326,74 +392,78 @@ function buildTrialBlock({ numTrials, prevalenceRate, isPractice }) {
 // RUN EXPERIMENT TIMELINE
 // ════════════════════════════════════════════════════════════
 
-const practiceTrials = buildTrialBlock({ numTrials: 8, prevalenceRate: 0.5, isPractice: true });
-timeline.push(...practiceTrials);
+// Wait for JSON data to load, then initialize the experiment
+dataLoadPromise.then(() => {
+  const practiceTrials = buildTrialBlock({ numTrials: 8, prevalenceRate: 0.5, isPractice: true });
+  timeline.push(...practiceTrials);
 
-const practice_end = {
-  type: jsPsychHtmlKeyboardResponse,
-  stimulus: `
-    <p><strong>Practice complete!</strong></p>
-    <p>The main experiment will now begin.</p>
-    <p>Remember: ${getExpectationText()}</p>
-    <p style="color:#7a5050; font-size:0.9rem;">Press Space when you are ready.</p>
-  `,
-  choices: [' '],
-};
-timeline.push(practice_end);
+  const practice_end = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+      <p><strong>Practice complete!</strong></p>
+      <p>The main experiment will now begin.</p>
+      <p>Remember: ${getExpectationText()}</p>
+      <p style="color:#7a5050; font-size:0.9rem;">Press Space when you are ready.</p>
+    `,
+    choices: [' '],
+  };
+  timeline.push(practice_end);
 
-const prevalenceRate = assignedCondition.actualPrevalence === "high"
-  ? CONFIG.HIGH_PREVALENCE_RATE
-  : CONFIG.LOW_PREVALENCE_RATE;
+  const prevalenceRate = assignedCondition.actualPrevalence === "high"
+    ? CONFIG.HIGH_PREVALENCE_RATE
+    : CONFIG.LOW_PREVALENCE_RATE;
 
-const mainTrials = buildTrialBlock({
-  numTrials:      CONFIG.TRIALS_PER_BLOCK,
-  prevalenceRate: prevalenceRate,
-  isPractice:     false,
-});
-timeline.push(...mainTrials);
+  const mainTrials = buildTrialBlock({
+    numTrials:      CONFIG.TRIALS_PER_BLOCK,
+    prevalenceRate: prevalenceRate,
+    isPractice:     false,
+  });
+  timeline.push(...mainTrials);
 
-// Mid-point break
-const midpoint = Math.floor(mainTrials.length / 2);
-timeline.splice(timeline.length - mainTrials.length + midpoint, 0, {
-  type: jsPsychHtmlKeyboardResponse,
-  stimulus: `<p><strong>Halfway there — take a short break!</strong></p><p>When you are ready to continue, press Space.</p>`,
-  choices: [' '],
-});
+  // Mid-point break
+  const midpoint = Math.floor(mainTrials.length / 2);
+  timeline.splice(timeline.length - mainTrials.length + midpoint, 0, {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `<p><strong>Halfway there — take a short break!</strong></p><p>When you are ready to continue, press Space.</p>`,
+    choices: [' '],
+  });
 
-// Debrief
-timeline.push({
-  type: jsPsychHtmlKeyboardResponse,
-  stimulus: function () {
-    const data        = jsPsych.data.get().filter({ task: 'main' });
-    const totalTrials = data.count();
-    const errors      = data.filter({ isError: true }).count();
-    const avgRT       = Math.round(data.select('rt').mean());
+  // Debrief
+  timeline.push({
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: function () {
+      const data        = jsPsych.data.get().filter({ task: 'main' });
+      const totalTrials = data.count();
+      const errors      = data.filter({ isError: true }).count();
+      const avgRT       = Math.round(data.select('rt').mean());
 
-    return `
-      <p><strong>You have completed the experiment. Thank you!</strong></p>
-      <p>Here is a summary of your performance:</p>
-      <table style="margin:auto; border-collapse:collapse; font-size:1rem;">
-        <tr>
-          <td style="padding:8px 20px; text-align:right; color:#7a5050;">Total trials:</td>
-          <td style="padding:8px 20px;"><strong>${totalTrials}</strong></td>
-        </tr>
-        <tr>
-          <td style="padding:8px 20px; text-align:right; color:#7a5050;">Errors (Misses / False Alarms):</td>
-          <td style="padding:8px 20px;"><strong>${errors}</strong></td>
-        </tr>
-        <tr>
-          <td style="padding:8px 20px; text-align:right; color:#7a5050;">Average search time:</td>
-          <td style="padding:8px 20px;"><strong>${avgRT} ms</strong></td>
-        </tr>
-      </table>
-      <p style="margin-top:1.5em;">Your data has been saved. You may now close this window.</p>
-    `;
-  },
-  choices: [' '],
-});
+      return `
+        <p><strong>You have completed the experiment. Thank you!</strong></p>
+        <p>Here is a summary of your performance:</p>
+        <table style="margin:auto; border-collapse:collapse; font-size:1rem;">
+          <tr>
+            <td style="padding:8px 20px; text-align:right; color:#7a5050;">Total trials:</td>
+            <td style="padding:8px 20px;"><strong>${totalTrials}</strong></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 20px; text-align:right; color:#7a5050;">Errors (Misses / False Alarms):</td>
+            <td style="padding:8px 20px;"><strong>${errors}</strong></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 20px; text-align:right; color:#7a5050;">Average search time:</td>
+            <td style="padding:8px 20px;"><strong>${avgRT} ms</strong></td>
+          </tr>
+        </table>
+        <p style="margin-top:1.5em;">Your data has been saved. You may now close this window.</p>
+      `;
+    },
+    choices: [' '],
+  });
 
-jsPsych.run(timeline);
-
-</script>
+  jsPsych.run(timeline);
+}).catch(error => {
+  console.error('Failed to load experiment data:', error);
+  alert('Error loading experiment data. Please refresh and try again.');
+});</script>
 </body>
 </html>
