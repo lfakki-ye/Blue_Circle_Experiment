@@ -9,6 +9,7 @@
   <script src="https://unpkg.com/@jspsych/plugin-preload@2"></script>
   
   <script src="https://unpkg.com/@jspsych-contrib/plugin-image-hotspots@1"></script>
+  <script src="https://unpkg.com/@jspsych-contrib/plugin-pipe"></script>
   
   <link href="https://unpkg.com/jspsych@8/css/jspsych.css" rel="stylesheet" />
 
@@ -198,10 +199,15 @@ const CONFIG = {
 
 const jsPsych = initJsPsych({
   override_safe_mode: true,
-  on_finish: function () {
-    jsPsych.data.get().localSave('csv', 'visual_search_data.csv');
-  }
 });
+
+const subject_id = jsPsych.randomization.randomID(10);
+const filename = `${subject_id}.json`;
+
+const urlParams = new URLSearchParams(window.location.search);
+const prolific_pid = urlParams.get('PROLIFIC_PID');
+const prolific_study_id = urlParams.get('STUDY_ID');
+const prolific_session_id = urlParams.get('SESSION_ID');
 
 let timeline = [];
 
@@ -214,6 +220,10 @@ const CONDITIONS = [
 const assignedCondition = jsPsych.randomization.sampleWithoutReplacement(CONDITIONS, 1)[0];
 
 jsPsych.data.addProperties({
+  subject_id:             subject_id,
+  prolific_pid:           prolific_pid,
+  prolific_study_id:      prolific_study_id,
+  prolific_session_id:    prolific_session_id,
   actualPrevalence:       assignedCondition.actualPrevalence,
   prevalenceExpectation:  assignedCondition.prevalenceExpectation,
 });
@@ -283,26 +293,8 @@ timeline.push(welcome, instructions_1, instructions_2);
 // CORE: Build one search trial (Using image-hotspots)
 // ════════════════════════════════════════════════════════════
 
-function makeSearchTrial({ targetPresent, similarity, trialIndex, totalTrials, isPractice = false }) {
-  // Use the pre-built image pools
-  const pool = similarity === "high" ? imagePools.high : imagePools.low;
-  
-  // Filter images based on whether target should be present in this trial
-  const validImages = pool.filter(img => img.targetPresent === targetPresent);
-  
-  // Select a random image from the filtered list
-  const trialImage = validImages.length > 0 
-    ? validImages[Math.floor(Math.random() * validImages.length)] 
-    : { 
-        stimulus: "./newest_stimuli_200_trials_resized/highprev_target_absent_sim40_001.png", 
-        hotspots: [],
-        targetPresent: false 
-      };
-
-  // Debug logging to verify different images are being selected
-  console.log(`Trial ${trialIndex}: similarity=${similarity}, targetPresent=${targetPresent}, selected image: ${trialImage.stimulus}, valid images available: ${validImages.length}`);
-
-  const progressPct = Math.round((trialIndex / totalTrials) * 100);
+function makeSearchTrial({ trialImage, targetPresent, similarity, trialIndex, totalTrials, isPractice = false }) {
+  const progressPct = Math.round(((trialIndex + 1) / totalTrials) * 100);
 
   return {
     type: jsPsychImageHotspots,
@@ -356,6 +348,7 @@ function makeSearchTrial({ targetPresent, similarity, trialIndex, totalTrials, i
       data.isError = isError;
       data.movedOn = movedOn;
       data.isPractice = isPractice;
+      data.task = isPractice ? 'practice' : 'main';
       data.trialIndex = trialIndex;
       data.stimulus_file = trialImage.stimulus;
     }
@@ -367,18 +360,33 @@ function makeSearchTrial({ targetPresent, similarity, trialIndex, totalTrials, i
 // ════════════════════════════════════════════════════════════
 function buildTrialBlock({ numTrials, prevalenceRate, isPractice }) {
   const trials = [];
-  const targetPresenceList = [];
   const numTargetPresent = Math.round(numTrials * prevalenceRate);
-  
+
+  const targetPresenceList = [];
   for (let i = 0; i < numTrials; i++) {
     targetPresenceList.push(i < numTargetPresent);
   }
   const shuffledPresence = shuffle(targetPresenceList);
 
+  // Pre-shuffle a deck per (similarity, targetPresent) bucket so images are
+  // sampled without replacement within a block.
+  const decks = {
+    'high-true':  shuffle(imagePools.high.filter(img => img.targetPresent === true)),
+    'high-false': shuffle(imagePools.high.filter(img => img.targetPresent === false)),
+    'low-true':   shuffle(imagePools.low.filter(img => img.targetPresent === true)),
+    'low-false':  shuffle(imagePools.low.filter(img => img.targetPresent === false)),
+  };
+
   for (let i = 0; i < numTrials; i++) {
     const similarity = i % 2 === 0 ? "high" : "low";
+    const targetPresent = shuffledPresence[i];
+    const trialImage = decks[`${similarity}-${targetPresent}`].pop();
+    if (!trialImage) {
+      throw new Error(`Out of stimuli for similarity=${similarity}, targetPresent=${targetPresent} at trial ${i}`);
+    }
     trials.push(makeSearchTrial({
-      targetPresent: shuffledPresence[i],
+      trialImage:    trialImage,
+      targetPresent: targetPresent,
       similarity:    similarity,
       trialIndex:    i,
       totalTrials:   numTrials,
@@ -418,15 +426,23 @@ dataLoadPromise.then(() => {
     prevalenceRate: prevalenceRate,
     isPractice:     false,
   });
-  timeline.push(...mainTrials);
 
-  // Mid-point break
   const midpoint = Math.floor(mainTrials.length / 2);
-  timeline.splice(timeline.length - mainTrials.length + midpoint, 0, {
+  const breakTrial = {
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `<p><strong>Halfway there — take a short break!</strong></p><p>When you are ready to continue, press Space.</p>`,
     choices: [' '],
-  });
+  };
+  timeline.push(...mainTrials.slice(0, midpoint), breakTrial, ...mainTrials.slice(midpoint));
+
+  const save_data = {
+    type: jsPsychPipe,
+    action: "save",
+    experiment_id: "REPLACE_WITH_DATAPIPE_EXPERIMENT_ID",
+    filename: filename,
+    data_string: () => jsPsych.data.get().json()
+  };
+  timeline.push(save_data);
 
   // Debrief
   timeline.push({
@@ -454,10 +470,13 @@ dataLoadPromise.then(() => {
             <td style="padding:8px 20px;"><strong>${avgRT} ms</strong></td>
           </tr>
         </table>
-        <p style="margin-top:1.5em;">Your data has been saved. You may now close this window.</p>
+        <p style="margin-top:1.5em;">Your data has been saved. Press Space to return to Prolific.</p>
       `;
     },
     choices: [' '],
+    on_finish: function() {
+      window.location.href = 'https://app.prolific.com/submissions/complete?cc=C1JRNTM6';
+    },
   });
 
   jsPsych.run(timeline);
