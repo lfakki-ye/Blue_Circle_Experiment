@@ -152,9 +152,9 @@ function buildImagePools(metadata) {
     };
     
     if (entry.similarity_pct === 40) {
-      highSimImages.push(imageObj);
-    } else if (entry.similarity_pct === 90) {
       lowSimImages.push(imageObj);
+    } else if (entry.similarity_pct === 90) {
+      highSimImages.push(imageObj);
     }
   });
   
@@ -362,11 +362,14 @@ function buildTrialBlock({ numTrials, prevalenceRate, isPractice }) {
   const trials = [];
   const numTargetPresent = Math.round(numTrials * prevalenceRate);
 
-  const targetPresenceList = [];
+  const assignments = [];
   for (let i = 0; i < numTrials; i++) {
-    targetPresenceList.push(i < numTargetPresent);
+    assignments.push({
+      similarity:    i % 2 === 0 ? "high" : "low",
+      targetPresent: i < numTargetPresent,
+    });
   }
-  const shuffledPresence = shuffle(targetPresenceList);
+  const shuffledAssignments = shuffle(assignments);
 
   // Pre-shuffle a deck per (similarity, targetPresent) bucket so images are
   // sampled without replacement within a block.
@@ -378,8 +381,7 @@ function buildTrialBlock({ numTrials, prevalenceRate, isPractice }) {
   };
 
   for (let i = 0; i < numTrials; i++) {
-    const similarity = i % 2 === 0 ? "high" : "low";
-    const targetPresent = shuffledPresence[i];
+    const { similarity, targetPresent } = shuffledAssignments[i];
     const trialImage = decks[`${similarity}-${targetPresent}`].pop();
     if (!trialImage) {
       throw new Error(`Out of stimuli for similarity=${similarity}, targetPresent=${targetPresent} at trial ${i}`);
