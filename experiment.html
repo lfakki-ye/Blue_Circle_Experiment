@@ -1,526 +1,490 @@
 <!DOCTYPE html>
 <html>
 <head>
- <title>Expectations and Its Impact on Searching</title>
+  <title>Expectations and Its Impact on Searching</title>
+  
   <script src="https://unpkg.com/jspsych@8"></script>
+  
   <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@2"></script>
- <script src="https://unpkg.com/@jspsych/plugin-preload@2"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-preload@2"></script>
+  
   <script src="https://unpkg.com/@jspsych-contrib/plugin-image-hotspots@1"></script>
- <script src="https://unpkg.com/@jspsych-contrib/plugin-pipe@0.4"></script>
+  <script src="https://unpkg.com/@jspsych-contrib/plugin-pipe@0.4"></script>
+  
   <link href="https://unpkg.com/jspsych@8/css/jspsych.css" rel="stylesheet" />
 
+  <style>
+    /* ── Global ── */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #f0eae8;
+      font-family: Georgia, 'Times New Roman', serif;
+      color: #2a1f1f;
+    }
 
- <style>
-   /* ── Global ── */
-   html, body {
-     margin: 0;
-     padding: 0;
-     width: 100%;
-     height: 100%;
-     overflow: hidden;
-     background: #f0eae8;
-     font-family: Georgia, 'Times New Roman', serif;
-     color: #2a1f1f;
-   }
+    /* ── Instruction / text screens ── */
+    .jspsych-content {
+      max-width: 90vw;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .jspsych-content p {
+      font-size: 1.1rem;
+      line-height: 1.7;
+      margin-bottom: 1em;
+    }
 
+    /* ── Search Trial Wrapper ── */
+    .jspsych-image-hotspots {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      width: 100vw;
+      height: 100vh;
+      padding: 0;
+      margin: 0;
+      overflow: hidden;
+      gap: 10px;
+    }
 
-   /* ── Instruction / text screens ── */
-   .jspsych-content {
-     max-width: 90vw;
-     max-height: 90vh;
-     overflow-y: auto;
-   }
-   .jspsych-content p {
-     font-size: 1.1rem;
-     line-height: 1.7;
-     margin-bottom: 1em;
-   }
+    /* ── Search Trial UI (Prompt Area) ── */
+    #search-ui-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      padding: 8px;
+      margin-top: 0;
+      flex-shrink: 0;
+    }
 
+    #move-on-btn {
+      padding: 8px 25px;
+      background: #7a5050;
+      color: #fff;
+      border: none;
+      border-radius: 24px;
+      font-size: 0.9rem;
+      font-family: Georgia, serif;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
 
-   /* ── Search Trial Wrapper ── */
-   .jspsych-image-hotspots {
-     display: flex;
-     flex-direction: column;
-     align-items: center;
-     justify-content: flex-start;
-     width: 100vw;
-     height: 100vh;
-     padding: 0;
-     margin: 0;
-     overflow: hidden;
-     gap: 10px;
-   }
+    #move-on-btn:hover {
+      background: #5a3535;
+      transform: translateY(-1px);
+    }
 
+    /* ── Progress bar ── */
+    #progress-wrapper {
+      width: 300px;
+      max-width: 70vw;
+      background: #d9cece;
+      border-radius: 20px;
+      height: 6px;
+      overflow: hidden;
+    }
+    #progress-bar {
+      height: 100%;
+      background: #9b6b6b;
+      border-radius: 20px;
+      transition: width 0.4s ease;
+    }
 
-   /* ── Search Trial UI (Prompt Area) ── */
-   #search-ui-container {
-     display: flex;
-     flex-direction: column;
-     align-items: center;
-     gap: 5px;
-     padding: 8px;
-     margin-top: 0;
-     flex-shrink: 0;
-   }
-
-
-   #move-on-btn {
-     padding: 8px 25px;
-     background: #7a5050;
-     color: #fff;
-     border: none;
-     border-radius: 24px;
-     font-size: 0.9rem;
-     font-family: Georgia, serif;
-     letter-spacing: 0.05em;
-     cursor: pointer;
-     transition: background 0.2s, transform 0.1s;
-   }
-
-
-   #move-on-btn:hover {
-     background: #5a3535;
-     transform: translateY(-1px);
-   }
-
-
-   /* ── Progress bar ── */
-   #progress-wrapper {
-     width: 300px;
-     max-width: 70vw;
-     background: #d9cece;
-     border-radius: 20px;
-     height: 6px;
-     overflow: hidden;
-   }
-   #progress-bar {
-     height: 100%;
-     background: #9b6b6b;
-     border-radius: 20px;
-     transition: width 0.4s ease;
-   }
-
-
-   #progress-label {
-     font-size: 0.7rem;
-     color: #7a5050;
-     margin-top: 2px;
-   }
- </style>
+    #progress-label {
+      font-size: 0.7rem;
+      color: #7a5050;
+      margin-top: 2px;
+    }
+  </style>
 </head>
 <body>
 <script>
 
-
 //function experiment_expectations(data) {
-
-
 
 
 // Global variable to store image metadata
 let imageMetadata = [];
 let imagePools = { high: [], low: [] };
 
-
 function fetchJSONData() {
-   return fetch('./mergedjsonfiles.json')
-       .then(response => {
-           if (!response.ok) {
-               throw new Error(`HTTP error! Status: ${response.status}`);
-           }
-           return response.json(); 
-       })
-       .then(data => {
-           imageMetadata = data;
-           console.log(`Loaded ${imageMetadata.length} image metadata entries`);
-           // Build image pools once data is loaded
-           imagePools = buildImagePools(data);
-           console.log(`Built image pools: ${imagePools.high.length} high sim, ${imagePools.low.length} low sim`);
-           return data;
-       })
-       .catch(error => {
-           console.error('Failed to fetch data:', error);
-           alert('Error loading experiment data. Please make sure you are running this from a web server, not opening the file directly in your browser.');
-           return [];
-       });
+    return fetch('./mergedjsonfiles.json')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();  
+        })
+        .then(data => {
+            imageMetadata = data;
+            console.log(`Loaded ${imageMetadata.length} image metadata entries`);
+            // Build image pools once data is loaded
+            imagePools = buildImagePools(data);
+            console.log(`Built image pools: ${imagePools.high.length} high sim, ${imagePools.low.length} low sim`);
+            return data;
+        })
+        .catch(error => {
+            console.error('Failed to fetch data:', error);
+            alert('Error loading experiment data. Please make sure you are running this from a web server, not opening the file directly in your browser.');
+            return [];
+        }); 
 }
-
 
 // Build image pools from JSON metadata
 function buildImagePools(metadata) {
- const highSimImages = [];
- const lowSimImages = [];
-  metadata.forEach(entry => {
-   const imageObj = {
-     stimulus: `./newest_stimuli_200_trials_resized/${entry.image_file}`,
-     targetPresent: entry.target_present,
-     target_bbox: entry.target_bbox,
-     similarity: entry.similarity_pct,
-     hotspots: buildHotspotsFromBBox(entry.target_bbox, entry.target_present)
-   };
+  const highSimImages = [];
+  const lowSimImages = [];
   
-   if (entry.similarity_pct === 40) {
-     highSimImages.push(imageObj);
-   } else if (entry.similarity_pct === 90) {
-     lowSimImages.push(imageObj);
-   }
- });
+  metadata.forEach(entry => {
+    const imageObj = {
+      stimulus: `./newest_stimuli_200_trials_resized/${entry.image_file}`,
+      targetPresent: entry.target_present,
+      target_bbox: entry.target_bbox,
+      similarity: entry.similarity_pct,
+      hotspots: buildHotspotsFromBBox(entry.target_bbox, entry.target_present)
+    };
+    
+    if (entry.similarity_pct === 40) {
+      lowSimImages.push(imageObj);
+    } else if (entry.similarity_pct === 90) {
+      highSimImages.push(imageObj);
+    }
+  });
+  
   return { high: highSimImages, low: lowSimImages };
 }
-
 
 // Fetch the data before initializing the experiment
 let dataLoadPromise = fetchJSONData();
 
-
 // Convert target_bbox to hotspots format for the image-hotspots plugin
 function buildHotspotsFromBBox(bbox, targetPresent) {
- if (!targetPresent || !bbox) {
-   return [];
- }
+  if (!targetPresent || !bbox) {
+    return [];
+  }
+  
   // bbox format: {x_min, x_max, y_min, y_max}
- const hotspots = [];
- if (bbox && bbox.x_min !== undefined) {
-   hotspots.push({
-     id: 'target',
-     x: Math.round(bbox.x_min),
-     y: Math.round(bbox.y_min),
-     width: Math.round(bbox.x_max - bbox.x_min),
-     height: Math.round(bbox.y_max - bbox.y_min)
-   });
- }
- return hotspots;
+  const hotspots = [];
+  if (bbox && bbox.x_min !== undefined) {
+    hotspots.push({
+      id: 'target',
+      x: Math.round(bbox.x_min),
+      y: Math.round(bbox.y_min),
+      width: Math.round(bbox.x_max - bbox.x_min),
+      height: Math.round(bbox.y_max - bbox.y_min)
+    });
+  }
+  return hotspots;
 }
-
 
 // ════════════════════════════════════════════════════════════
 // CONFIGURATION
 // ════════════════════════════════════════════════════════════
 const CONFIG = {
- TRIALS_PER_BLOCK: 40,
- HIGH_PREVALENCE_RATE: 0.70,
- LOW_PREVALENCE_RATE:  0.10,
+  TRIALS_PER_BLOCK: 40,
+  HIGH_PREVALENCE_RATE: 0.70,
+  LOW_PREVALENCE_RATE:  0.10,
 };
-
 
 // ════════════════════════════════════════════════════════════
 // EXPERIMENT SETUP
 // ════════════════════════════════════════════════════════════
 
-
 const jsPsych = initJsPsych({
- override_safe_mode: true,
- on_finish: function () {
-   jsPsych.data.get().localSave('csv', 'visual_search_data.csv');
- }
+  override_safe_mode: true,
 });
 
+const subject_id = jsPsych.randomization.randomID(10);
+const filename = `${subject_id}.json`;
+
+const urlParams = new URLSearchParams(window.location.search);
+const prolific_pid = urlParams.get('PROLIFIC_PID');
+const prolific_study_id = urlParams.get('STUDY_ID');
+const prolific_session_id = urlParams.get('SESSION_ID');
 
 let timeline = [];
 
-
 const CONDITIONS = [
- { actualPrevalence: "high", prevalenceExpectation: "accurate"   },
- { actualPrevalence: "high", prevalenceExpectation: "misleading" },
- { actualPrevalence: "low",  prevalenceExpectation: "accurate"   },
- { actualPrevalence: "low",  prevalenceExpectation: "misleading" },
+  { actualPrevalence: "high", prevalenceExpectation: "accurate"   },
+  { actualPrevalence: "high", prevalenceExpectation: "misleading" },
+  { actualPrevalence: "low",  prevalenceExpectation: "accurate"   },
+  { actualPrevalence: "low",  prevalenceExpectation: "misleading" },
 ];
 const assignedCondition = jsPsych.randomization.sampleWithoutReplacement(CONDITIONS, 1)[0];
 
-
 jsPsych.data.addProperties({
- actualPrevalence:       assignedCondition.actualPrevalence,
- prevalenceExpectation:  assignedCondition.prevalenceExpectation,
+  subject_id:             subject_id,
+  prolific_pid:           prolific_pid,
+  prolific_study_id:      prolific_study_id,
+  prolific_session_id:    prolific_session_id,
+  actualPrevalence:       assignedCondition.actualPrevalence,
+  prevalenceExpectation:  assignedCondition.prevalenceExpectation,
 });
 
-
 function getExpectationText() {
- const { actualPrevalence, prevalenceExpectation } = assignedCondition;
- if (prevalenceExpectation === "accurate") {
-   return actualPrevalence === "high"
-     ? "The target item will appear in <strong>most</strong> of the searches you complete."
-     : "The target item will appear in only a <strong>small number</strong> of the searches you complete.";
- }
- if (prevalenceExpectation === "misleading") {
-   return actualPrevalence === "high"
-     ? "The target item will appear in only a <strong>small number</strong> of the searches you complete."
-     : "The target item will appear in <strong>most</strong> of the searches you complete.";
- }
+  const { actualPrevalence, prevalenceExpectation } = assignedCondition;
+  if (prevalenceExpectation === "accurate") {
+    return actualPrevalence === "high" 
+      ? "The target item will appear in <strong>most</strong> of the searches you complete."
+      : "The target item will appear in only a <strong>small number</strong> of the searches you complete.";
+  }
+  if (prevalenceExpectation === "misleading") {
+    return actualPrevalence === "high"
+      ? "The target item will appear in only a <strong>small number</strong> of the searches you complete."
+      : "The target item will appear in <strong>most</strong> of the searches you complete.";
+  }
 }
-
 
 function shuffle(arr) {
- const a = [...arr];
- for (let i = a.length - 1; i > 0; i--) {
-   const j = Math.floor(Math.random() * (i + 1));
-   [a[i], a[j]] = [a[j], a[i]];
- }
- return a;
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
-
 
 // ════════════════════════════════════════════════════════════
 // TIMELINE: INSTRUCTIONS
 // ════════════════════════════════════════════════════════════
 const welcome = {
- type: jsPsychHtmlKeyboardResponse,
- stimulus: `
-   <p style="font-size:1.6rem; font-weight:bold; margin-bottom:0.5em;">Welcome to the Experiment</p>
-   <p>Thank you for participating.</p>
-   <p>Press <strong>Space</strong> to continue.</p>
- `,
- choices: [' '],
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: `
+    <p style="font-size:1.6rem; font-weight:bold; margin-bottom:0.5em;">Welcome to the Experiment</p>
+    <p>Thank you for participating.</p>
+    <p>Press <strong>Space</strong> to continue.</p>
+  `,
+  choices: [' '],
 };
-
 
 const instructions_1 = {
- type: jsPsychHtmlKeyboardResponse,
- stimulus: `
-   <p><strong>Your Task</strong></p>
-   <p>On each trial your job is to find the <em>BLUE CIRCLE</em> as quickly and accurately as possible.</p>
-   <p>If you see the target, <strong>click directly on it</strong> to move to the next trial.</p>
-   <p>If you do not find the target, click the <strong>"Move On &rarr;"</strong> button below the image.</p>
-   <p style="color:#7a5050; font-size:0.9rem;">Press Space to continue.</p>
- `,
- choices: [' '],
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: `
+    <p><strong>Your Task</strong></p>
+    <p>On each trial you will see an image. Your job is to find the <em>target</em> as quickly and accurately as possible.</p>
+    <p>If you see the target, <strong>click directly on it</strong> to move to the next trial.</p>
+    <p>If you do not find the target, click the <strong>"Move On &rarr;"</strong> button below the image.</p>
+    <p style="color:#7a5050; font-size:0.9rem;">Press Space to continue.</p>
+  `,
+  choices: [' '],
 };
-
 
 const instructions_2 = {
- type: jsPsychHtmlKeyboardResponse,
- stimulus: `
-   <p><strong>About the Target</strong></p>
-   <p>${getExpectationText()}</p>
-   <p>Try to respond as <strong>quickly and accurately</strong> as possible on every trial.</p>
-   <p>For every time you correctly identify if the target is on the screen, or not on the screen you will gain a point.</p>
-   <p>The more points you have, the better!</p> 
-   <p style="color:#7a5050; font-size:0.9rem;">Press Space to begin the practice round.</p>
- `,
- choices: [' '],
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: `
+    <p><strong>About the Target</strong></p>
+    <p>${getExpectationText()}</p>
+    <p>Try to respond as <strong>quickly and accurately</strong> as possible on every trial.</p>
+    <p style="color:#7a5050; font-size:0.9rem;">Press Space to begin the practice round.</p>
+  `,
+  choices: [' '],
 };
 
-
 timeline.push(welcome, instructions_1, instructions_2);
-
 
 // ════════════════════════════════════════════════════════════
 // CORE: Build one search trial (Using image-hotspots)
 // ════════════════════════════════════════════════════════════
 
+function makeSearchTrial({ trialImage, targetPresent, similarity, trialIndex, totalTrials, isPractice = false }) {
+  const progressPct = Math.round(((trialIndex + 1) / totalTrials) * 100);
 
-function makeSearchTrial({ targetPresent, similarity, trialIndex, totalTrials, isPractice = false }) {
- // Use the pre-built image pools
- const pool = similarity === "high" ? imagePools.high : imagePools.low;
-  // Filter images based on whether target should be present in this trial
- const validImages = pool.filter(img => img.targetPresent === targetPresent);
-  // Select a random image from the filtered list
- const trialImage = validImages.length > 0
-   ? validImages[Math.floor(Math.random() * validImages.length)]
-   : {
-       stimulus: "./newest_stimuli_200_trials_resized/highprev_target_absent_sim40_001.png",
-       hotspots: [],
-       targetPresent: false
-     };
-
-
- // Debug logging to verify different images are being selected
- console.log(`Trial ${trialIndex}: similarity=${similarity}, targetPresent=${targetPresent}, selected image: ${trialImage.stimulus}, valid images available: ${validImages.length}`);
-
-
- const progressPct = Math.round((trialIndex / totalTrials) * 100);
-
-
- return {
-   type: jsPsychImageHotspots,
-   stimulus: trialImage.stimulus,
-   hotspots: trialImage.hotspots,
-   data: {
-     task: isPractice ? 'practice' : 'main',
-     isPractice: isPractice,
-     targetPresent: targetPresent,
-     similarity: similarity,
-     trialIndex: trialIndex,
-     stimulus_file: trialImage.stimulus
-   },
-   // Add visual feedback when they click a mapped hotspot
-   hotspot_highlight_css: "border: 3px solid #9b6b6b; background-color: rgba(155, 107, 107, 0.3);",
-  
-   // The prompt displays below the stimulus image. We inject our progress bar and 'Move On' button here.
-   prompt: `
-     <div id="search-ui-container">
-       <div id="progress-wrapper">
-         <div id="progress-bar" style="width:${progressPct}%"></div>
-       </div>
-       <div id="progress-label">Trial ${trialIndex + 1} of ${totalTrials}${isPractice ? ' (practice)' : ''}</div>
+  return {
+    type: jsPsychImageHotspots,
+    stimulus: trialImage.stimulus,
+    hotspots: trialImage.hotspots,
+    // Add visual feedback when they click a mapped hotspot
+    hotspot_highlight_css: "border: 3px solid #9b6b6b; background-color: rgba(155, 107, 107, 0.3);",
+    
+    // The prompt displays below the stimulus image. We inject our progress bar and 'Move On' button here.
+    prompt: `
+      <div id="search-ui-container">
+        <div id="progress-wrapper">
+          <div id="progress-bar" style="width:${progressPct}%"></div>
+        </div>
+        <div id="progress-label">Trial ${trialIndex + 1} of ${totalTrials}${isPractice ? ' (practice)' : ''}</div>
+        
+        <button id="move-on-btn" type="button">Move On &rarr;</button>
+      </div>
+    `,
+    
+    on_load: function() {
+      // Record start time so we can calculate RT if they use the "Move On" button
+      const startTime = performance.now();
       
-       <button id="move-on-btn" type="button">Move On &rarr;</button>
-     </div>
-   `,
-  
-   on_load: function() {
-     // Record start time so we can calculate RT if they use the "Move On" button
-     const startTime = performance.now();
-    
-     // The image-hotspots plugin handles hotspot clicks automatically, but we
-     // must manually handle the "Move On" button to force the trial to end.
-     document.getElementById('move-on-btn').addEventListener('click', function() {
-       const rt = Math.round(performance.now() - startTime);
-       jsPsych.finishTrial({
-         rt: rt,
-         movedOn: true,
-         hotspot_clicked: null // They didn't click a hotspot
-       });
-     });
-   },
+      // The image-hotspots plugin handles hotspot clicks automatically, but we 
+      // must manually handle the "Move On" button to force the trial to end.
+      document.getElementById('move-on-btn').addEventListener('click', function() {
+        const rt = Math.round(performance.now() - startTime);
+        jsPsych.finishTrial({
+          rt: rt,
+          movedOn: true,
+          hotspot_clicked: null // They didn't click a hotspot
+        });
+      });
+    },
 
+    on_finish: function(data) {
+      // Determine what they actually clicked based on plugin output
+      const clickedTarget = data.hotspot_clicked === 'target';
+      const movedOn = data.movedOn === true; // Set by our custom button logic above
+      
+      // Determine if the participant made an error:
+      // 1. Target was present, but they didn't click it (missed it or clicked a mapped distractor)
+      // 2. Target was absent, but they clicked a hotspot instead of clicking "Move On" (false alarm)
+      const isError = (targetPresent && !clickedTarget) || (!targetPresent && !movedOn);
 
-   on_finish: function(data) {
-     // Determine what they actually clicked based on plugin output
-     const clickedTarget = data.hotspot_clicked === 'target';
-     const movedOn = data.movedOn === true; // Set by our custom button logic above
-    
-     // Determine if the participant made an error:
-     // 1. Target was present, but they didn't click it (missed it or clicked a mapped distractor)
-     // 2. Target was absent, but they clicked a hotspot instead of clicking "Move On" (false alarm)
-     const isError = (targetPresent && !clickedTarget) || (!targetPresent && !movedOn);
-
-
-     // Save critical trial info to the data output
-     data.clickedTarget = clickedTarget;
-     data.isError = isError;
-     data.movedOn = movedOn;
-   }
- };
+      // Save critical trial info to the data output
+      data.targetPresent = targetPresent;
+      data.similarity = similarity;
+      data.clickedTarget = clickedTarget;
+      data.isError = isError;
+      data.movedOn = movedOn;
+      data.isPractice = isPractice;
+      data.task = isPractice ? 'practice' : 'main';
+      data.trialIndex = trialIndex;
+      data.stimulus_file = trialImage.stimulus;
+    }
+  };
 }
-
 
 // ════════════════════════════════════════════════════════════
 // BUILD TRIAL SEQUENCE
 // ════════════════════════════════════════════════════════════
 function buildTrialBlock({ numTrials, prevalenceRate, isPractice }) {
- const trials = [];
- const targetPresenceList = [];
- const numTargetPresent = Math.round(numTrials * prevalenceRate);
+  const trials = [];
+  const numTargetPresent = Math.round(numTrials * prevalenceRate);
+
+  const assignments = [];
   for (let i = 0; i < numTrials; i++) {
-   targetPresenceList.push(i < numTargetPresent);
- }
- const shuffledPresence = shuffle(targetPresenceList);
+    assignments.push({
+      similarity:    i % 2 === 0 ? "high" : "low",
+      targetPresent: i < numTargetPresent,
+    });
+  }
+  const shuffledAssignments = shuffle(assignments);
 
+  // Pre-shuffle a deck per (similarity, targetPresent) bucket so images are
+  // sampled without replacement within a block.
+  const decks = {
+    'high-true':  shuffle(imagePools.high.filter(img => img.targetPresent === true)),
+    'high-false': shuffle(imagePools.high.filter(img => img.targetPresent === false)),
+    'low-true':   shuffle(imagePools.low.filter(img => img.targetPresent === true)),
+    'low-false':  shuffle(imagePools.low.filter(img => img.targetPresent === false)),
+  };
 
- for (let i = 0; i < numTrials; i++) {
-   const similarity = i % 2 === 0 ? "high" : "low";
-   trials.push(makeSearchTrial({
-     targetPresent: shuffledPresence[i],
-     similarity:    similarity,
-     trialIndex:    i,
-     totalTrials:   numTrials,
-     isPractice:    isPractice,
-   }));
- }
- return trials;
+  for (let i = 0; i < numTrials; i++) {
+    const { similarity, targetPresent } = shuffledAssignments[i];
+    const trialImage = decks[`${similarity}-${targetPresent}`].pop();
+    if (!trialImage) {
+      throw new Error(`Out of stimuli for similarity=${similarity}, targetPresent=${targetPresent} at trial ${i}`);
+    }
+    trials.push(makeSearchTrial({
+      trialImage:    trialImage,
+      targetPresent: targetPresent,
+      similarity:    similarity,
+      trialIndex:    i,
+      totalTrials:   numTrials,
+      isPractice:    isPractice,
+    }));
+  }
+  return trials;
 }
-
 
 // ════════════════════════════════════════════════════════════
 // RUN EXPERIMENT TIMELINE
 // ════════════════════════════════════════════════════════════
 
-
 // Wait for JSON data to load, then initialize the experiment
 dataLoadPromise.then(() => {
- const practiceTrials = buildTrialBlock({ numTrials: 8, prevalenceRate: 0.5, isPractice: true });
- timeline.push(...practiceTrials);
+  const practiceTrials = buildTrialBlock({ numTrials: 8, prevalenceRate: 0.5, isPractice: true });
+  timeline.push(...practiceTrials);
 
+  const practice_end = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+      <p><strong>Practice complete!</strong></p>
+      <p>The main experiment will now begin.</p>
+      <p>Remember: ${getExpectationText()}</p>
+      <p style="color:#7a5050; font-size:0.9rem;">Press Space when you are ready.</p>
+    `,
+    choices: [' '],
+  };
+  timeline.push(practice_end);
 
- const practice_end = {
-   type: jsPsychHtmlKeyboardResponse,
-   stimulus: `
-     <p><strong>Practice complete!</strong></p>
-     <p>The main experiment will now begin.</p>
-     <p>Remember: ${getExpectationText()}</p>
-     <p style="color:#7a5050; font-size:0.9rem;">Press Space when you are ready.</p>
-   `,
-   choices: [' '],
- };
- timeline.push(practice_end);
+  const prevalenceRate = assignedCondition.actualPrevalence === "high"
+    ? CONFIG.HIGH_PREVALENCE_RATE
+    : CONFIG.LOW_PREVALENCE_RATE;
 
+  const mainTrials = buildTrialBlock({
+    numTrials:      CONFIG.TRIALS_PER_BLOCK,
+    prevalenceRate: prevalenceRate,
+    isPractice:     false,
+  });
 
- const prevalenceRate = assignedCondition.actualPrevalence === "high"
-   ? CONFIG.HIGH_PREVALENCE_RATE
-   : CONFIG.LOW_PREVALENCE_RATE;
+  const midpoint = Math.floor(mainTrials.length / 2);
+  const breakTrial = {
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `<p><strong>Halfway there — take a short break!</strong></p><p>When you are ready to continue, press Space.</p>`,
+    choices: [' '],
+  };
+  timeline.push(...mainTrials.slice(0, midpoint), breakTrial, ...mainTrials.slice(midpoint));
 
+  const save_data = {
+    type: jsPsychPipe,
+    action: "save",
+    experiment_id: "wB3iVRq3SH4b",
+    filename: filename,
+    data_string: () => jsPsych.data.get().json()
+  };
+  timeline.push(save_data);
 
- const mainTrials = buildTrialBlock({
-   numTrials:      CONFIG.TRIALS_PER_BLOCK,
-   prevalenceRate: prevalenceRate,
-   isPractice:     false,
- });
- timeline.push(...mainTrials);
+  // Debrief
+  timeline.push({
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: function () {
+      const data        = jsPsych.data.get().filter({ task: 'main' });
+      const totalTrials = data.count();
+      const errors      = data.filter({ isError: true }).count();
+      const avgRT       = Math.round(data.select('rt').mean());
 
+      return `
+        <p><strong>You have completed the experiment. Thank you!</strong></p>
+        <p>Here is a summary of your performance:</p>
+        <table style="margin:auto; border-collapse:collapse; font-size:1rem;">
+          <tr>
+            <td style="padding:8px 20px; text-align:right; color:#7a5050;">Total trials:</td>
+            <td style="padding:8px 20px;"><strong>${totalTrials}</strong></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 20px; text-align:right; color:#7a5050;">Errors (Misses / False Alarms):</td>
+            <td style="padding:8px 20px;"><strong>${errors}</strong></td>
+          </tr>
+          <tr>
+            <td style="padding:8px 20px; text-align:right; color:#7a5050;">Average search time:</td>
+            <td style="padding:8px 20px;"><strong>${avgRT} ms</strong></td>
+          </tr>
+        </table>
+        <p style="margin-top:1.5em;">Your data has been saved. Press Space to return to Prolific.</p>
+      `;
+    },
+    choices: [' '],
+    on_finish: function() {
+      window.location.href = 'https://app.prolific.com/submissions/complete?cc=C1JRNTM6';
+    },
+  });
 
- // Mid-point break
- const midpoint = Math.floor(mainTrials.length / 2);
- timeline.splice(timeline.length - mainTrials.length + midpoint, 0, {
-   type: jsPsychHtmlKeyboardResponse,
-   stimulus: `<p><strong>Halfway there — take a short break!</strong></p><p>When you are ready to continue, press Space.</p>`,
-   choices: [' '],
- });
-
-
- // Send data to OSF via DataPipe
- const pipeDataTrial = {
-   type: jsPsychPipe,
-   action: "save",
-   experiment_id: "YOUR_EXPERIMENT_ID", // Replace with your DataPipe experiment ID from OSF
-   filename: "visual_search_data.csv",
-   data_string: () => jsPsych.data.get().filter({ task: 'main' }).csv()
- };
- timeline.push(pipeDataTrial);
-
-
- // Debrief
- timeline.push({
-   type: jsPsychHtmlKeyboardResponse,
-   stimulus: function () {
-     const data        = jsPsych.data.get().filter({ task: 'main' });
-     const totalTrials = data.count();
-     const errors      = data.filter({ isError: true }).count();
-     const correct     = totalTrials - errors;
-     const avgRT       = Math.round(data.select('rt').mean());
-
-
-     return `
-       <p><strong>You have completed the experiment. Thank you!</strong></p>
-       <p>Here is a summary of your performance:</p>
-       <table style="margin:auto; border-collapse:collapse; font-size:1rem;">
-         <tr>
-           <td style="padding:8px 20px; text-align:right; color:#7a5050;">Total trials:</td>
-           <td style="padding:8px 20px;"><strong>${totalTrials}</strong></td>
-         </tr>
-         <tr>
-           <td style="padding:8px 20px; text-align:right; color:#7a5050;">Correct:</td>
-           <td style="padding:8px 20px;"><strong>${correct}</strong></td>
-         </tr>
-         <tr>
-           <td style="padding:8px 20px; text-align:right; color:#7a5050;">Errors (Misses / False Alarms):</td>
-           <td style="padding:8px 20px;"><strong>${errors}</strong></td>
-         </tr>
-         <tr>
-           <td style="padding:8px 20px; text-align:right; color:#7a5050;">Average search time:</td>
-           <td style="padding:8px 20px;"><strong>${avgRT} ms</strong></td>
-         </tr>
-       </table>
-       <p style="margin-top:1.5em;">Your data has been saved. You may now close this window.</p>
-     `;
-   },
-   choices: [' '],
- });
-
-
- jsPsych.run(timeline);
+  jsPsych.run(timeline);
 }).catch(error => {
- console.error('Failed to load experiment data:', error);
- alert('Error loading experiment data. Please refresh and try again.');
+  console.error('Failed to load experiment data:', error);
+  alert('Error loading experiment data. Please refresh and try again.');
 });</script>
 </body>
 </html>
