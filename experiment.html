@@ -188,11 +188,7 @@ function buildHotspotsFromBBox(bbox, targetPresent) {
 // CONFIGURATION
 // ════════════════════════════════════════════════════════════
 const CONFIG = {
-  TRIALS_PER_BLOCK: 40,
-  HIGH_PREVALENCE_RATE: 0.70,
-  LOW_PREVALENCE_RATE:  0.10,
-};
-
+ TRIALS_PER_BLOCK: 200,
 // ════════════════════════════════════════════════════════════
 // EXPERIMENT SETUP
 // ════════════════════════════════════════════════════════════
@@ -251,6 +247,20 @@ function shuffle(arr) {
   return a;
 }
 
+// Request fullscreen mode (cross-browser compatible)
+function requestFullscreen() {
+  const elem = document.documentElement;
+  if (elem.requestFullscreen) {
+    elem.requestFullscreen();
+  } else if (elem.webkitRequestFullscreen) { // Safari
+    elem.webkitRequestFullscreen();
+  } else if (elem.msRequestFullscreen) { // IE11
+    elem.msRequestFullscreen();
+  } else if (elem.mozRequestFullScreen) { // Firefox (older)
+    elem.mozRequestFullScreen();
+  }
+}
+
 // ════════════════════════════════════════════════════════════
 // TIMELINE: INSTRUCTIONS
 // ════════════════════════════════════════════════════════════
@@ -259,9 +269,14 @@ const welcome = {
   stimulus: `
     <p style="font-size:1.6rem; font-weight:bold; margin-bottom:0.5em;">Welcome to the Experiment</p>
     <p>Thank you for participating.</p>
+    <p>The experiment will now go full screen. Please allow fullscreen mode when prompted by your browser.</p>
     <p>Press <strong>Space</strong> to continue.</p>
   `,
   choices: [' '],
+  on_load: function() {
+    // Request fullscreen when the welcome screen loads
+    requestFullscreen();
+  }
 };
 
 const instructions_1 = {
