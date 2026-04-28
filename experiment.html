@@ -7,6 +7,7 @@
   
   <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@2"></script>
   <script src="https://unpkg.com/@jspsych/plugin-preload@2"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-fullscreen@2"></script>
   
   <script src="https://unpkg.com/@jspsych-contrib/plugin-image-hotspots@1"></script>
   <script src="https://unpkg.com/@jspsych-contrib/plugin-pipe@0.4"></script>
@@ -251,20 +252,6 @@ function shuffle(arr) {
   return a;
 }
 
-// Request fullscreen mode (cross-browser compatible)
-function requestFullscreen() {
-  const elem = document.documentElement;
-  if (elem.requestFullscreen) {
-    elem.requestFullscreen();
-  } else if (elem.webkitRequestFullscreen) { // Safari
-    elem.webkitRequestFullscreen();
-  } else if (elem.msRequestFullscreen) { // IE11
-    elem.msRequestFullscreen();
-  } else if (elem.mozRequestFullScreen) { // Firefox (older)
-    elem.mozRequestFullScreen();
-  }
-}
-
 // ════════════════════════════════════════════════════════════
 // TIMELINE: INSTRUCTIONS
 // ════════════════════════════════════════════════════════════
@@ -277,10 +264,11 @@ const welcome = {
     <p>Press <strong>Space</strong> to continue.</p>
   `,
   choices: [' '],
-  on_load: function() {
-    // Request fullscreen when the welcome screen loads
-    requestFullscreen();
-  }
+};
+
+const enter_fullscreen = {
+  type: jsPsychFullscreen,
+  fullscreen_mode: true,
 };
 
 const instructions_1 = {
@@ -306,7 +294,7 @@ const instructions_2 = {
   choices: [' '],
 };
 
-timeline.push(welcome, instructions_1, instructions_2);
+timeline.push(welcome, enter_fullscreen, instructions_1, instructions_2);
 
 // ════════════════════════════════════════════════════════════
 // CORE: Build one search trial (Using image-hotspots)
@@ -464,6 +452,12 @@ dataLoadPromise.then(() => {
     data_string: () => jsPsych.data.get().json()
   };
   timeline.push(save_data);
+
+  const exit_fullscreen = {
+    type: jsPsychFullscreen,
+    fullscreen_mode: false,
+  };
+  timeline.push(exit_fullscreen);
 
   // Debrief
   timeline.push({
