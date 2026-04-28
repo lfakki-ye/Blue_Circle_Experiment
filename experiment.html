@@ -152,9 +152,9 @@ function buildImagePools(metadata) {
     };
     
     if (entry.similarity_pct === 40) {
-      lowSimImages.push(imageObj);
-    } else if (entry.similarity_pct === 90) {
       highSimImages.push(imageObj);
+    } else if (entry.similarity_pct === 90) {
+      lowSimImages.push(imageObj);
     }
   });
   
@@ -189,6 +189,10 @@ function buildHotspotsFromBBox(bbox, targetPresent) {
 // ════════════════════════════════════════════════════════════
 const CONFIG = {
  TRIALS_PER_BLOCK: 200,
+ HIGH_PREVALENCE_RATE: 0.70,
+ LOW_PREVALENCE_RATE:  0.10,
+};
+
 // ════════════════════════════════════════════════════════════
 // EXPERIMENT SETUP
 // ════════════════════════════════════════════════════════════
