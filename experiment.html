@@ -6,6 +6,7 @@
   <script src="https://unpkg.com/jspsych@8"></script>
   
   <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@2"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-html-button-response@2"></script>
   <script src="https://unpkg.com/@jspsych/plugin-preload@2"></script>
   <script src="https://unpkg.com/@jspsych/plugin-fullscreen@2"></script>
   
@@ -461,7 +462,7 @@ dataLoadPromise.then(() => {
 
   // Debrief
   timeline.push({
-    type: jsPsychHtmlKeyboardResponse,
+    type: jsPsychHtmlButtonResponse,
     stimulus: function () {
       const data        = jsPsych.data.get().filter({ task: 'main' });
       const totalTrials = data.count();
@@ -485,10 +486,10 @@ dataLoadPromise.then(() => {
             <td style="padding:8px 20px;"><strong>${avgRT} ms</strong></td>
           </tr>
         </table>
-        <p style="margin-top:1.5em;">Your data has been saved. Press Space to return to Prolific.</p>
+        <p style="margin-top:1.5em;">Your data has been saved. Click the button below to return to Prolific.</p>
       `;
     },
-    choices: [' '],
+    choices: ['Return to Prolific'],
     on_finish: function() {
       window.location.href = 'https://app.prolific.com/submissions/complete?cc=C1JRNTM6';
     },
