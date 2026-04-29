@@ -233,13 +233,13 @@ function getExpectationText() {
   const { actualPrevalence, prevalenceExpectation } = assignedCondition;
   if (prevalenceExpectation === "accurate") {
     return actualPrevalence === "high" 
-      ? "The target item will appear in <strong>most</strong> of the searches you complete."
-      : "The target item will appear in only a <strong>small number</strong> of the searches you complete.";
+      ? "The blue circle will appear in <strong>most</strong> of the searches you complete."
+      : "The blue circle will appear in only a <strong>small number</strong> of the searches you complete.";
   }
   if (prevalenceExpectation === "misleading") {
     return actualPrevalence === "high"
-      ? "The target item will appear in only a <strong>small number</strong> of the searches you complete."
-      : "The target item will appear in <strong>most</strong> of the searches you complete.";
+      ? "The blue circle will appear in only a <strong>small number</strong> of the searches you complete."
+      : "The blue circle will appear in <strong>most</strong> of the searches you complete.";
   }
 }
 
