@@ -150,12 +150,13 @@ function buildImagePools(metadata) {
       targetPresent: entry.target_present,
       target_bbox: entry.target_bbox,
       similarity: entry.similarity_pct,
+      prevalenceSet: entry.file_prefix,
       hotspots: buildHotspotsFromBBox(entry.target_bbox, entry.target_present)
     };
     
-    if (entry.similarity_pct === 40) {
+    if (entry.similarity_pct === 90) {
       highSimImages.push(imageObj);
-    } else if (entry.similarity_pct === 90) {
+    } else if (entry.similarity_pct === 40) {
       lowSimImages.push(imageObj);
     }
   });
@@ -191,7 +192,7 @@ function buildHotspotsFromBBox(bbox, targetPresent) {
 // ════════════════════════════════════════════════════════════
 const CONFIG = {
  TRIALS_PER_BLOCK: 200,
- HIGH_PREVALENCE_RATE: 0.70,
+ HIGH_PREVALENCE_RATE: 0.50,
  LOW_PREVALENCE_RATE:  0.10,
 };
 
@@ -204,12 +205,13 @@ const jsPsych = initJsPsych({
 });
 
 const subject_id = jsPsych.randomization.randomID(10);
-const filename = `${subject_id}.json`;
 
 const urlParams = new URLSearchParams(window.location.search);
 const prolific_pid = urlParams.get('PROLIFIC_PID');
 const prolific_study_id = urlParams.get('STUDY_ID');
 const prolific_session_id = urlParams.get('SESSION_ID');
+
+const filename = `${prolific_pid || subject_id}.json`;
 
 let timeline = [];
 
@@ -366,7 +368,7 @@ function makeSearchTrial({ trialImage, targetPresent, similarity, trialIndex, to
 // ════════════════════════════════════════════════════════════
 // BUILD TRIAL SEQUENCE
 // ════════════════════════════════════════════════════════════
-function buildTrialBlock({ numTrials, prevalenceRate, isPractice }) {
+function buildTrialBlock({ numTrials, prevalenceRate, isPractice, prevalenceSet }) {
   const trials = [];
   const numTargetPresent = Math.round(numTrials * prevalenceRate);
 
@@ -379,13 +381,18 @@ function buildTrialBlock({ numTrials, prevalenceRate, isPractice }) {
   }
   const shuffledAssignments = shuffle(assignments);
 
+  // Restrict to the stimulus subset that belongs to this condition (highprev
+  // images for the high-prevalence block, lowprev for the low-prevalence block)
+  // so the two conditions never share images.
+  const inSet = img => img.prevalenceSet === prevalenceSet;
+
   // Pre-shuffle a deck per (similarity, targetPresent) bucket so images are
   // sampled without replacement within a block.
   const decks = {
-    'high-true':  shuffle(imagePools.high.filter(img => img.targetPresent === true)),
-    'high-false': shuffle(imagePools.high.filter(img => img.targetPresent === false)),
-    'low-true':   shuffle(imagePools.low.filter(img => img.targetPresent === true)),
-    'low-false':  shuffle(imagePools.low.filter(img => img.targetPresent === false)),
+    'high-true':  shuffle(imagePools.high.filter(img => inSet(img) && img.targetPresent === true)),
+    'high-false': shuffle(imagePools.high.filter(img => inSet(img) && img.targetPresent === false)),
+    'low-true':   shuffle(imagePools.low.filter(img => inSet(img) && img.targetPresent === true)),
+    'low-false':  shuffle(imagePools.low.filter(img => inSet(img) && img.targetPresent === false)),
   };
 
   for (let i = 0; i < numTrials; i++) {
@@ -412,7 +419,27 @@ function buildTrialBlock({ numTrials, prevalenceRate, isPractice }) {
 
 // Wait for JSON data to load, then initialize the experiment
 dataLoadPromise.then(() => {
-  const practiceTrials = buildTrialBlock({ numTrials: 8, prevalenceRate: 0.5, isPractice: true });
+  const preload = {
+    type: jsPsychPreload,
+    images: [...imagePools.high, ...imagePools.low].map(img => img.stimulus),
+    message: '<p>Loading images, please wait...</p>',
+    show_progress_bar: true,
+    continue_after_error: true,
+  };
+  timeline.push(preload);
+
+  // Practice draws from the OPPOSITE prefix so practice images never overlap
+  // with the participant's main block, and so practice has enough target-
+  // present stimuli regardless of the assigned condition.
+  const mainPrevalenceSet     = `${assignedCondition.actualPrevalence}prev`;
+  const practicePrevalenceSet = assignedCondition.actualPrevalence === "high" ? "lowprev" : "highprev";
+
+  const practiceTrials = buildTrialBlock({
+    numTrials:      8,
+    prevalenceRate: 0.5,
+    isPractice:     true,
+    prevalenceSet:  practicePrevalenceSet,
+  });
   timeline.push(...practiceTrials);
 
   const practice_end = {
@@ -435,6 +462,7 @@ dataLoadPromise.then(() => {
     numTrials:      CONFIG.TRIALS_PER_BLOCK,
     prevalenceRate: prevalenceRate,
     isPractice:     false,
+    prevalenceSet:  mainPrevalenceSet,
   });
 
   const midpoint = Math.floor(mainTrials.length / 2);
